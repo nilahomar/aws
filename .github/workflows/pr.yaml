@@ -1,0 +1,106 @@
+name: Terraform CI/CD
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**.tf'
+  push:
+    branches:
+      - main
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_dirs: ${{ steps.get_dirs.outputs.dirs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+
+      - name: Get changed directories
+        id: get_dirs
+        run: |
+          # Get changed files in the terraform directory
+          changed_files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- 'terraform/**.tf')
+
+          # Extract unique directories and format as JSON array
+          if [[ -z "$changed_files" ]]; then
+            changed_dirs="[]"
+          else
+            changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          fi
+          echo $changed_dirs
+
+          # Ensure changed_dirs is set and not empty
+          echo "changed_dirs=$changed_dirs" >> "$GITHUB_ENV"
+          echo "changed_dirs=$changed_dirs" >> "$GITHUB_OUTPUT"
+
+  terraform-plan:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed_dirs != '[]' && needs.detect-changes.outputs.changed_dirs != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changes.outputs.changed_dirs) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ matrix.dir }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color > plan.txt
+          cat plan.txt
+        working-directory: ${{ matrix.dir }}
+
+      - name: Upload Plan Output as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ matrix.dir }}
+          path: ${{ matrix.dir }}/plan.txt
+
+      - name: Comment Terraform Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ### Terraform Plan for `${{ matrix.dir }}`
+            ```
+            $(cat ${{ matrix.dir }}/plan.txt | head -c 65000)
+            ```
+          reactions: "rocket"
+
+  terraform-apply:
+    needs: [detect-changes, terraform-plan]
+    if: github.event_name == 'push' && needs.detect-changes.outputs.changed_dirs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changes.outputs.changed_dirs) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ matrix.dir }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ${{ matrix.dir }}
