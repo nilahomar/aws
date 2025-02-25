@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: notes-app
+  labels:
+    app: notes-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notes-app
+  namespace: notes-app
+  labels:
+    app: notes-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notes-app
+  template:
+    metadata:
+      labels:
+        app: notes-app
+    spec:
+      containers:
+      - name: notes-app
+        image: nilahomar/notes-app-cicd:latest
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 200m
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notes-app
+  namespace: notes-app
+spec:
+ selector:
+   app: notes-app
+ ports:
+ - port: 3000
+   targetPort: 3000
+   protocol: TCP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: notes-app
+  namespace: notes-app
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+      - notes.dev.nilahomar.com
+      secretName: notes-tls
+  rules:
+  - host: notes.dev.nilahomar.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: notes-app
+            port:
+              number: 3000

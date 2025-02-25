@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-dns
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: external-dns
+  template:
+    metadata:
+      labels:
+        app: external-dns
+    spec:
+      serviceAccountName: external-dns
+      containers:
+        - name: external-dns
+          image: registry.k8s.io/external-dns/external-dns
+          args:
+            - --events
+            - --source=service
+            - --source=ingress
+            - --registry=txt
+            - --provider=aws
+            - --domain-filter=dev.nilahomar.com
+            - --aws-zone-type=public
+            - --txt-owner-id=dev-01
+          env:
+            - name: AWS_DEFAULT_REGION
+              value: eu-central-1
