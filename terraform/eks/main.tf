@@ -28,5 +28,3 @@ data "terraform_remote_state" "vpc" {
 data "aws_route53_zone" "main" {
   name = "dev.nilahomar.com"
 }
-
-# invoke action
