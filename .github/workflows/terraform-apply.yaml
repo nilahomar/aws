@@ -13,11 +13,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Fetch base branch
-        run: git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
 
       - name: Get changed directories
         id: get_dirs
@@ -26,15 +21,21 @@ jobs:
           changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} -- 'terraform/**/*.tf')
 
           # Extract unique directories
-          changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          if [[ -z "$changed_files" ]]; then
+            changed_dirs="[]"
+          else
+            changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          fi
 
-          # Store directories as an output variable
-          echo "dirs=$changed_dirs" >> $GITHUB_ENV
-          echo "dirs=$changed_dirs" >> $GITHUB_OUTPUT
+          # Ensure changed_dirs is only set if not empty
+          if [[ "$changed_dirs" != "[]" ]]; then
+            echo "changed_dirs=$changed_dirs" >> $GITHUB_ENV
+            echo "changed_dirs=$changed_dirs" >> $GITHUB_OUTPUT
+          fi
 
   terraform-apply:
     needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.changed_dirs != '[]' && needs.detect-changes.outputs.changed_dirs != '' }}
+    if: ${{ needs.detect-changes.outputs.changed_dirs != '' && needs.detect-changes.outputs.changed_dirs != '[]' && contains(needs.detect-changes.outputs.changed_dirs, '[') }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
