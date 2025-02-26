@@ -1,0 +1,80 @@
+name: Terraform CI/CD
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**.tf'
+  push:
+    branches:
+      - main
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_dirs: ${{ steps.get_dirs.outputs.changed_dirs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+
+      - name: Get changed directories
+        id: get_dirs
+        run: |
+          # Get changed files in the terraform directory
+          changed_files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- 'terraform/**.tf')
+
+          # Extract unique directories and format as JSON array
+          if [[ -z "$changed_files" ]]; then
+            changed_dirs="[]"
+          else
+            changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          fi
+          echo $changed_dirs
+
+          # Ensure changed_dirs is set and not empty
+          echo "changed_dirs=$changed_dirs" >> "$GITHUB_ENV"
+          echo "changed_dirs=$changed_dirs" >> "$GITHUB_OUTPUT"
+
+  terraform-plan-and-apply:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed_dirs != '[]' && needs.detect-changes.outputs.changed_dirs != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changes.outputs.changed_dirs) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ matrix.dir }}
+
+      - name: Terraform Plan
+        working-directory: ${{ matrix.dir }}
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply (only on merge)
+        if: github.event_name == 'push'
+        working-directory: ${{ matrix.dir }}
+        run: terraform apply -auto-approve tfplan
