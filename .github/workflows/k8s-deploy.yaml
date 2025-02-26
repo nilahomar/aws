@@ -1,0 +1,70 @@
+name: Deploy Kustomize to EKS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_dirs: ${{ steps.get_dirs.outputs.changed_dirs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed directories
+        id: get_dirs
+        run: |
+          # Get changed files in the manifests directory
+          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- 'manifests/**.yaml')
+
+          # Extract unique directories
+          if [[ -z "$changed_files" ]]; then
+            echo "No manifests files were modified. Skipping apply."
+            echo "changed_dirs=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+
+          # Store directories as an output variable
+          echo "changed_dirs=$changed_dirs" >> $GITHUB_ENV
+          echo "changed_dirs=$changed_dirs" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy to EKS
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed_dirs != '' && needs.detect-changes.outputs.changed_dirs != '[]' && contains(needs.detect-changes.outputs.changed_dirs, '[') }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changes.outputs.changed_dirs) }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set up kubectl
+        run: |
+          aws eks update-kubeconfig --name dev-01 --region ${{ secrets.AWS_REGION }}
+
+      - name: Install Kustomize
+        run: |
+          curl -sLo /usr/local/bin/kustomize https://github.com/kubernetes-sigs/kustomize/releases/latest/download/kustomize_linux_amd64
+          chmod +x /usr/local/bin/kustomize
+
+      - name: Deploy Kustomize Manifests
+        run: |
+          cd path/to/kustomize  # Adjust path to your kustomize base/overlay
+          kustomize build . | kubectl apply -f -
