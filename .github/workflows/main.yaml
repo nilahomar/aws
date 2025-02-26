@@ -18,7 +18,7 @@ jobs:
         id: get_dirs
         run: |
           # Get changed files in the terraform directory
-          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} -- 'terraform/**.tf')
+          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- 'terraform/**.tf')
 
           # Extract unique directories
           if [[ -z "$changed_files" ]]; then
