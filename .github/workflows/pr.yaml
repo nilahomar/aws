@@ -12,7 +12,7 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      changed_dirs: ${{ steps.get_dirs.outputs.dirs }}
+      changed_dirs: ${{ steps.get_dirs.outputs.changed_dirs }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
