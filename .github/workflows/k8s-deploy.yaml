@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'manifests/**.yaml'
 
 jobs:
   detect-changes:
@@ -62,9 +64,9 @@ jobs:
       - name: Install Kustomize
         run: |
           curl -sLo /usr/local/bin/kustomize https://github.com/kubernetes-sigs/kustomize/releases/latest/download/kustomize_linux_amd64
-          chmod +x /usr/local/bin/kustomize
+          sudo chmod +x /usr/local/bin/kustomize
 
       - name: Deploy Kustomize Manifests
+        working-directory: ${{ matrix.dir }}
         run: |
-          cd path/to/kustomize  # Adjust path to your kustomize base/overlay
           kustomize build . | kubectl apply -f -
