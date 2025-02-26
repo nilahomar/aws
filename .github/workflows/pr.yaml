@@ -9,9 +9,6 @@ on:
   pull_request:
     paths:
       - 'terraform/**.tf'
-  push:
-    branches:
-      - main
 
 jobs:
   detect-changes:
