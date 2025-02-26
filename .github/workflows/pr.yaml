@@ -14,6 +14,8 @@ on:
       - main
   issue_comment:
     types: [created]
+  repository_dispatch:
+    types: [terraform-apply]
 
 jobs:
   detect-changes:
@@ -92,7 +94,7 @@ jobs:
 
   terraform-apply:
     needs: detect-changes
-    if: github.event.issue.pull_request && contains(github.event.comment.body, 'terraform apply')
+    if: github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
     strategy:
       matrix:
