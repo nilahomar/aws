@@ -12,10 +12,6 @@ on:
   push:
     branches:
       - main
-  issue_comment:
-    types: [created]
-  repository_dispatch:
-    types: [terraform-apply]
 
 jobs:
   detect-changes:
@@ -91,32 +87,3 @@ jobs:
               repo: context.repo.repo,
               body: `## Terraform Plan for \`${{ matrix.dir }}\`\n\`\`\`\n${planOutput}\n\`\`\``
             });
-
-  terraform-apply:
-    needs: detect-changes
-    if: github.event_name == 'repository_dispatch'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        dir: ${{ fromJson(needs.detect-changes.outputs.changed_dirs) }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v3
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: latest
-
-      - name: Terraform Init & Apply
-        working-directory: ${{ matrix.dir }}
-        run: |
-          terraform init
-          terraform apply -auto-approve

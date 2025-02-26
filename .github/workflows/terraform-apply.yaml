@@ -1,0 +1,62 @@
+name: Terraform apply on push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_dirs: ${{ steps.get_dirs.outputs.changed_dirs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+
+      - name: Get changed directories
+        id: get_dirs
+        run: |
+          # Get changed files in the terraform directory
+          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} -- 'terraform/**/*.tf')
+
+          # Extract unique directories
+          changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+
+          # Store directories as an output variable
+          echo "dirs=$changed_dirs" >> $GITHUB_ENV
+          echo "dirs=$changed_dirs" >> $GITHUB_OUTPUT
+
+  terraform-apply:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed_dirs != '[]' && needs.detect-changes.outputs.changed_dirs != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changes.outputs.changed_dirs) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Terraform Init & Apply
+        working-directory: ${{ matrix.dir }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
