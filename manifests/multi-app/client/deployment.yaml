@@ -27,7 +27,7 @@ spec:
         ports:
           - containerPort: 3000
         env:
-          - name: MULTI-SERVER
+          - name: SERVER
             value: "http://multi-app-server.multi-app.svc.cluster.local:8000"
           - name: WDS_SOCKET_PORT
             value: "0"
