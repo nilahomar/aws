@@ -1,0 +1,33 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multi-app-client
+  labels:
+    app: multi-app-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multi-app-client
+  template:
+    metadata:
+      labels:
+        app: multi-app-client
+    spec:
+      containers:
+      - name: multi-app-client
+        image: 080480537207.dkr.ecr.eu-central-1.amazonaws.com/client:bcb86c19eacd085ce5a022e4d62e7441fc1cd9b6
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 200m
+        ports:
+          - containerPort: 3000
+        env:
+          - name: MULTI-SERVER
+            value: "http://multi-app-server.multi-app.svc.cluster.local:8000"
+          - name: WDS_SOCKET_PORT
+            value: "0"

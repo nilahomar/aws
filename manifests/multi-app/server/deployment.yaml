@@ -1,0 +1,43 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multi-app-server
+  labels:
+    app: multi-app-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multi-app-server
+  template:
+    metadata:
+      labels:
+        app: multi-app-server
+    spec:
+      containers:
+      - name: multi-app-server
+        image: 080480537207.dkr.ecr.eu-central-1.amazonaws.com/server:bcb86c19eacd085ce5a022e4d62e7441fc1cd9b6
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 200m
+        ports:
+          - containerPort: 8000
+        env:
+          - name: REDIS_HOST
+            value: redis.multi-app.svc.cluster.local
+          - name: REDIS_PORT
+            value: '6379'
+          - name: PGUSER
+            value: postgres
+          - name: PGHOST
+            value: postgres.multi-app.svc.cluster.local
+          - name: PGDATABASE
+            value: postgres
+          - name: PGPASSWORD
+            value: postgres_password
+          - name: PGPORT
+            value: '5432'

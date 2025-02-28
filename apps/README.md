@@ -32,3 +32,12 @@ changed_files=$(git diff --name-only origin/main...HEAD -- 'apps/**')
 echo $changed_files
 changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
 ```
+
+## Deployment
+
+  - client
+    - Deployment, Service, Ingress
+  - worker
+    - Deployment, Service
+  - server
+    - Deployment, Service

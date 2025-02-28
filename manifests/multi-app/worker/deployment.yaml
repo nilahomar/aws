@@ -1,0 +1,31 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multi-app-worker
+  labels:
+    app: multi-app-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multi-app-worker
+  template:
+    metadata:
+      labels:
+        app: multi-app-worker
+    spec:
+      containers:
+      - name: multi-app-worker
+        image: 080480537207.dkr.ecr.eu-central-1.amazonaws.com/worker:381549fc7ae5cac92839d47146521a1873312e83
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 200m
+        env:
+        - name: REDIS_HOST
+          value: redis
+        - name: REDIS_PORT
+          value: '6379'
