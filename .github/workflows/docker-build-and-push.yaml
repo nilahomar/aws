@@ -4,10 +4,10 @@ on:
   push:
     branches:
       - main
-  paths:
-    - 'apps/client/**'
-    - 'apps/server/**'
-    - 'apps/worker/**'
+    paths:
+      - 'apps/client/**'
+      - 'apps/server/**'
+      - 'apps/worker/**'
 
 jobs:
   detect-changes:
