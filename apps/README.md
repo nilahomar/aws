@@ -26,3 +26,9 @@
     - ECR Login
     - Docker build for apps - loop through changed directories from step above
     - Docker tag with ECR repo and push
+
+```sh
+changed_files=$(git diff --name-only origin/main...HEAD -- 'apps/**')
+echo $changed_files
+changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+```

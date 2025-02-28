@@ -1,0 +1,76 @@
+name: Docker build apps
+
+on:
+  push:
+    branches:
+      - main
+  paths:
+    - 'apps/client/**'
+    - 'apps/server/**'
+    - 'apps/worker/**'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_dirs: ${{ steps.get_dirs.outputs.changed_dirs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+
+      - name: Get changed directories
+        id: get_dirs
+        run: |
+          # Get changed files in the terraform directory
+          changed_files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- 'apps/**')
+
+          # Extract unique directories and format as JSON array
+          if [[ -z "$changed_files" ]]; then
+            changed_dirs="[]"
+          else
+            changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          fi
+          echo $changed_dirs
+
+          # Ensure changed_dirs is set and not empty
+          echo "changed_dirs=$changed_dirs" >> "$GITHUB_ENV"
+          echo "changed_dirs=$changed_dirs" >> "$GITHUB_OUTPUT"
+
+  build-and-push:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed_dirs != '[]' && needs.detect-changes.outputs.changed_dirs != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changes.outputs.changed_dirs) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push docker image to Amazon ECR
+        working-directory: ${{ matrix.dir }}
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          REPOSITORY=${{ matrix.dir }}
+          REPOSITORY=${REPOSITORY#apps/}  # Strip 'apps/' prefix
+
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
