@@ -1,14 +1,12 @@
 import React, {Component} from 'react';
 import axios from 'axios';
-
-const keys = require('./keys')
+import keys from './keys';
 
 class Fib extends Component{
   state ={
     seenIndexes: [],
     values: {},
-    index: '',
-    server: keys.server
+    index: ''
   };
 
   componentDidMount(){
@@ -17,12 +15,12 @@ class Fib extends Component{
   }
 
   async fetchValues(){
-    const values = await axios.get(`${server}/api/values/current`);
+    const values = await axios.get(`${keys.server}/api/values/current`);
     this.setState({values: values.data})
   }
 
   async fetchIndexes(){
-    const seenIndexes = await axios.get(`${server}/api/values/all`);
+    const seenIndexes = await axios.get(`${keys.server}/api/values/all`);
     this.setState({
       seenIndexes: seenIndexes.data
     });
@@ -31,7 +29,7 @@ class Fib extends Component{
   handleSubmit = async (event) => {
     event.preventDefault();
 
-    await axios.post(`${server}/api/values`, {
+    await axios.post(`${keys.server}/api/values`, {
       index: this.state.index
     });
 
@@ -74,5 +72,3 @@ class Fib extends Component{
 }
 
 export  default Fib;
-
-// Test
