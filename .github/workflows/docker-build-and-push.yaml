@@ -26,14 +26,14 @@ jobs:
           # Get changed files in the apps directory
           changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- 'apps/**')
 
-          # Extract unique directories
+          # Extract unique first-level app directories (apps/XXX)
           if [[ -z "$changed_files" ]]; then
             echo "No apps files were modified. Skipping apply."
             echo "changed_dirs=[]" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          changed_dirs=$(echo "$changed_files" | awk -F'/' '{print $1"/"$2}' | sort -u | jq -R -s -c 'split("\n")[:-1]')
 
           # Store directories as an output variable
           echo "changed_dirs=$changed_dirs" >> $GITHUB_ENV
