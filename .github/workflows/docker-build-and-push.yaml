@@ -20,26 +20,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch base branch
-        run: git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
-
       - name: Get changed directories
         id: get_dirs
         run: |
-          # Get changed files in the terraform directory
-          changed_files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- 'apps/**')
+          # Get changed files in the apps directory
+          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- 'apps/**')
 
-          # Extract unique directories and format as JSON array
+          # Extract unique directories
           if [[ -z "$changed_files" ]]; then
-            changed_dirs="[]"
-          else
-            changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+            echo "No apps files were modified. Skipping apply."
+            echo "changed_dirs=[]" >> $GITHUB_OUTPUT
+            exit 0
           fi
-          echo $changed_dirs
 
-          # Ensure changed_dirs is set and not empty
-          echo "changed_dirs=$changed_dirs" >> "$GITHUB_ENV"
-          echo "changed_dirs=$changed_dirs" >> "$GITHUB_OUTPUT"
+          changed_dirs=$(echo "$changed_files" | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+
+          # Store directories as an output variable
+          echo "changed_dirs=$changed_dirs" >> $GITHUB_ENV
+          echo "changed_dirs=$changed_dirs" >> $GITHUB_OUTPUT
 
   build-and-push:
     needs: detect-changes
