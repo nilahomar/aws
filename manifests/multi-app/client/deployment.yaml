@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: multi-app-client
-        image: 080480537207.dkr.ecr.eu-central-1.amazonaws.com/client:bcb86c19eacd085ce5a022e4d62e7441fc1cd9b6
+        image: 080480537207.dkr.ecr.eu-central-1.amazonaws.com/client:a874a59eb9cbdc7a1795dba9db62142312fbbefe
         imagePullPolicy: IfNotPresent
         resources:
           requests:
